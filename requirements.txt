@@ -1,0 +1,11 @@
+###### requirements without version specifiers ######
+
+cartopy
+folium
+pandas
+geopandas
+mapclassify
+pyyaml
+zipfile36
+
+###### requirements with version specifiers ######

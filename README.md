@@ -12,3 +12,11 @@ theoretically applicable / adaptable for the whole world.
 
 Please note that created network lines in general do not contain operational information
 (track usages, gauges or max speeds) and some included railway tracks may be out of service.
+
+## Installation
+create, activate & install virtual environment
+```commandline
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```

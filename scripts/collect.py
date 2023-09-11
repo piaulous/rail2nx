@@ -54,8 +54,8 @@ def get_country_codes(scope, format="alpha-3"):
 
 def get_rail_lines(scope):
     """
-    Country-wise ownload or import of railroads from DIVA-GIS
-    database for specified scope.
+    Country-wise download or import of railroads from DIVA-GIS database
+    for specified scope.
 
     Source:
             https://www.diva-gis.org/gdata

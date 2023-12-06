@@ -135,7 +135,6 @@ def get_rail_stations(scope):
         .to_crs(cfg["proj"]["crs_eur"])
     )
 
-    bus_operators = ["busbud_id", "distribusion_id", "flixbus_id"]
     rail_operators = [
         "sncf_id",
         "entur_id",
@@ -154,9 +153,7 @@ def get_rail_stations(scope):
         "westbahn_id",
     ]
 
-    stations["has_bus_id"] = stations[bus_operators].notnull().any(axis=1)
     stations["has_rail_id"] = stations[rail_operators].notnull().any(axis=1)
-
     stations = stations.loc[stations["has_rail_id"]]
 
     if isinstance(scope, str):

@@ -23,7 +23,7 @@ def lines_to_graph(lines_gdf):
 
     network_gdf["length"] = network_gdf.geometry.length
     if len(network_gdf.geom_type.unique()) > 1:
-        network_gdf = network_gdf.explode()
+        network_gdf = network_gdf.explode(index_parts=True)
 
     cols = list(network_gdf.columns)
 
@@ -43,6 +43,6 @@ def lines_to_graph(lines_gdf):
 
     nodes = set(sum(vertices, ()))
     for node in nodes:
-        graph[node]["geometry"] = Point(node)
+        graph.nodes[node]["geometry"] = Point(node)
 
     return graph

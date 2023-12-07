@@ -11,7 +11,7 @@ from shapely.geometry import Point
 from scripts.tools import read_config
 
 cfg = read_config()
-logger = logging.getLogger("railwaynetworks")
+logger = logging.getLogger("rail2nx")
 
 
 def get_country_codes(scope, format="alpha-3"):

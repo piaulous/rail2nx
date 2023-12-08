@@ -124,7 +124,7 @@ def get_rail_stations(scope):
             delimiter=";",
             low_memory=False,
         )
-        stations.to_csv(fname)
+        stations.to_csv(fname, index=False)
 
     stations = pd.read_csv(fname, low_memory=False)
     x, y = stations.longitude, stations.latitude

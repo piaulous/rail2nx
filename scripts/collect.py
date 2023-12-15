@@ -89,8 +89,8 @@ def get_rail_lines(scope):
         if cc == "ROU":
             cc_fname = f"{shps_dir}/ROM_rails.shp"
 
-        cc_rlines = gpd.read_file(cc_fname, crs=cfg["proj"]["crs_def"]).to_crs(
-            cfg["proj"]["crs_eur"]
+        cc_rlines = gpd.read_file(cc_fname, crs=cfg["geo"]["crs_def"]).to_crs(
+            cfg["geo"]["crs_eur"]
         )
         rlines.append(cc_rlines)
 
@@ -130,9 +130,9 @@ def get_rail_stations(scope):
     x, y = stations.longitude, stations.latitude
     stations["geometry"] = gpd.points_from_xy(x, y)
     stations = (
-        gpd.GeoDataFrame(stations, crs=cfg["proj"]["crs_def"])
+        gpd.GeoDataFrame(stations, crs=cfg["geo"]["crs_def"])
         .set_geometry("geometry")
-        .to_crs(cfg["proj"]["crs_eur"])
+        .to_crs(cfg["geo"]["crs_eur"])
     )
 
     # remove stations with duplicated coordinates
@@ -179,7 +179,7 @@ def locate_missing_coords(stations_gdf):
     fname = "data/stations_raw.csv"
     nom = cfg["nominatim"]
     stations = stations_gdf[stations_gdf.geometry.is_empty].set_crs(
-        cfg["proj"]["crs_def"], allow_override=True
+        cfg["geo"]["crs_def"], allow_override=True
     )
 
     unlocatables = []
@@ -226,7 +226,7 @@ def locate_missing_coords(stations_gdf):
         stations.at[idx, "geometry"] = Point(osm["lon"], osm["lat"])
         stations.at[idx, "is_city"] = is_city
 
-    stations = stations.to_crs(cfg["proj"]["crs_eur"])
+    stations = stations.to_crs(cfg["geo"]["crs_eur"])
     stations_gdf.update(stations)
 
     # update coords and drop stations that could not be located

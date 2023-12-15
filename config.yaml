@@ -11,9 +11,10 @@ nominatim:
   format: "json"
   language: "en"
 
-proj:
+geo:
   crs_def: "epsg:4326"
   crs_eur: "epsg:3035"
+  search_radius: 3500
 
 logger:
   format: "%(asctime)s - %(name)-20s - %(funcName)-25s - %(levelname)-20s: %(message)s"

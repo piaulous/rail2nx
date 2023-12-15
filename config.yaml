@@ -2,9 +2,18 @@ urls:
   ccodes: "https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-Regional-Codes/master/all/all.csv"
   stations: "https://raw.githubusercontent.com/trainline-eu/stations/master/stations.csv"
 
+dirs:
+  stations: "data/stations_raw.csv"
+
+nominatim:
+  url: "https://nominatim.openstreetmap.org/search?"
+  tags: "railway%3Astation"
+  format: "json"
+  language: "en"
+
 proj:
   crs_def: "epsg:4326"
   crs_eur: "epsg:3035"
 
 logger:
-  format: "%(asctime)s - %(name)-20s - %(funcName)-20s - %(levelname)-20s: %(message)s"
+  format: "%(asctime)s - %(name)-20s - %(funcName)-25s - %(levelname)-20s: %(message)s"

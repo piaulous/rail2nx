@@ -135,6 +135,12 @@ def get_rail_stations(scope):
         .to_crs(cfg["proj"]["crs_eur"])
     )
 
+    # remove stations with duplicated coordinates
+    stations = stations.sort_values("parent_station_id", ascending=True)
+    stations = stations[
+        ~stations.duplicated(subset=["latitude", "longitude"], keep="last")
+    ]
+
     rail_operators = [
         "sncf_id",
         "entur_id",
@@ -228,4 +234,4 @@ def locate_missing_coords(stations_gdf):
         stations_csv = pd.read_csv(fname, low_memory=False)
         stations_csv.update(stations)
         stations_csv.drop(unlocatables, axis=0, inplace=True)
-        stations_csv.to_csv(fname)
+        stations_csv.to_csv(fname, index=False)

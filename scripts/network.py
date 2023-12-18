@@ -97,6 +97,49 @@ def graph_to_gdfs(graph):
     return gdf_nodes, gdf_edges
 
 
+def graph_from_gdfs(gdf_nodes, gdf_edges):
+    """
+    Convert node and edge GeoDataFrames to a MultiDiGraph.
+    This function is the inverse of `graph_to_gdfs` and is designed to work in
+    conjunction with it.
+    inspired by osmnx package > utils_graph.graph_from_gdfs() function
+
+    Parameters
+    ----------
+    gdf_nodes : gpd.GeoDataFrame
+        GeoDataFrame of graph nodes
+    gdf_edges : gpd.GeoDataFrame
+        GeoDataFrame of graph edges uniquely multi-indexed by u, v, key
+
+    Returns
+    -------
+    graph : nx.MultiDiGraph
+    """
+
+    graph_attrs = {"crs": gdf_edges.crs}
+    graph = nx.MultiDiGraph(**graph_attrs)
+
+    gdf_edges.sort_index(inplace=True)
+    attr_names = gdf_edges.columns.to_list()
+    for (u, v, k), attr_vals in zip(gdf_edges.index, gdf_edges.to_numpy()):
+        data_all = zip(attr_names, attr_vals)
+        data = {
+            name: val
+            for name, val in data_all
+            if isinstance(val, list) or pd.notna(val)
+        }
+        graph.add_edge(u, v, key=k, **data)
+
+    gdf_nodes.sort_index(inplace=True)
+    graph.add_nodes_from(set(gdf_nodes.index) - set(graph.nodes))
+    for col in gdf_nodes.columns:
+        nx.set_node_attributes(
+            graph, name=col, values=gdf_nodes[col].dropna().to_dict()
+        )
+
+    return graph
+
+
 def join_stations_to_graph(graph, gdf_stations):
     """
     Station coordinates are shifted to nearest point on rail lines. Lines

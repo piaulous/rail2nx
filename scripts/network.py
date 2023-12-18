@@ -1,11 +1,10 @@
 import geopandas as gpd
 import networkx as nx
 import pandas as pd
-from shapely import set_precision
 from shapely.geometry import LineString, Point
 from shapely.ops import nearest_points, snap, split
 
-from scripts.tools import read_config
+from scripts.tools import read_config, round_gdf
 
 cfg = read_config()
 pd.options.mode.chained_assignment = None
@@ -33,8 +32,9 @@ def lines_to_graph(lines_gdf):
     network_gdf["length"] = network_gdf.geometry.length
     if len(network_gdf.geom_type.unique()) > 1:
         network_gdf = network_gdf.explode(index_parts=True)
+        network_gdf["length"] = network_gdf.geometry.length
 
-    network_gdf["geometry"] = set_precision(network_gdf.geometry, 0.1)
+    network_gdf = round_gdf(network_gdf)
     cols = list(network_gdf.columns)
 
     key = 0
@@ -112,7 +112,7 @@ def join_stations_to_graph(graph, gdf_stations):
             relevant attributes from lines_gdf / stations_gdf.
     """
 
-    # prepare graph gdfs
+    # prepare gdfs
     gdf_nodes, gdf_edges = graph_to_gdfs(graph)
     gdf_nodes["station"] = False
     gdf_edges["segmented"] = False
@@ -146,7 +146,7 @@ def join_stations_to_graph(graph, gdf_stations):
 
     # rebuild gdf_nodes
     sjn_nodes = sjoin[gdf_stations.columns]
-    sjn_nodes["is_station"] = True
+    sjn_nodes["station"] = True
     # station coords are shifted onto rail line
     sjn_nodes["geometry"] = sjoin["n_pt"]
     # when allocated duplicated, keep station coord and build connecting edges
@@ -160,6 +160,7 @@ def join_stations_to_graph(graph, gdf_stations):
         )
     ]
     # handle indexing
+    sjn_nodes = round_gdf(sjn_nodes)
     idx_nde = [sjn_nodes.geometry.x, sjn_nodes.geometry.y]
     sjn_nodes = sjn_nodes.set_index(idx_nde)
 
@@ -171,8 +172,10 @@ def join_stations_to_graph(graph, gdf_stations):
     sjn_edges = sjn_edges.explode("geometry", index_parts=True)
     sjn_edges = sjn_edges.drop_duplicates("geometry")
     sjn_edges = pd.concat([sjn_edges, con_edges], axis=0)
+    sjn_edges["geometry"] = sjn_edges.geometry
     sjn_edges["length"] = sjn_edges.geometry.length
     # handle indexing
+    sjn_edges = round_gdf(sjn_edges)
     sjn_edges.rename(columns={"index_0": "u", "index_1": "v", "index_2": "k"})
     sjn_edges["u"] = sjn_edges.apply(lambda x: x.geometry.coords[0], axis=1)
     sjn_edges["v"] = sjn_edges.apply(lambda x: x.geometry.coords[-1], axis=1)

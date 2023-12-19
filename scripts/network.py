@@ -10,7 +10,7 @@ cfg = read_config()
 pd.options.mode.chained_assignment = None
 
 
-def lines_to_graph(lines_gdf):
+def lines_to_graph(lines_gdf, keep_isolates=False):
     """
     Converts a LineString gpd.GeoDataFrame to a nx.Graph.
     Columns are preserved as edge attributes, node labels are
@@ -51,6 +51,9 @@ def lines_to_graph(lines_gdf):
     nodes = set(sum(vertices, ()))
     for node in nodes:
         graph.nodes[node]["geometry"] = Point(node)
+
+    if not keep_isolates:
+        graph = remove_isolates(graph)
 
     return graph
 
@@ -230,3 +233,28 @@ def join_stations_to_graph(graph, gdf_stations):
     gdf_edges = pd.concat([gdf_edges, sjn_edges])
 
     return gdf_nodes, gdf_edges
+
+
+def remove_isolates(graph):
+    largest_cc = max(nx.connected_components(graph), key=len)
+    isolate_nodes = set(graph.nodes) - largest_cc
+    graph.remove_nodes_from(isolate_nodes)
+
+    # isolate_stations = [graph.nodes[n]["name"]
+    # for n in isolate_nodes if graph.nodes[n]["station"]]
+
+    return graph
+
+
+def remove_deadends(graph):
+    while True:
+        deadend_nodes = [
+            n
+            for n, deg in dict(graph.degree()).items()
+            if deg == 1 and not graph.nodes[n]["station"]
+        ]
+        if len(deadend_nodes) > 0:
+            graph.remove_nodes_from(deadend_nodes)
+        else:
+            break
+    return graph

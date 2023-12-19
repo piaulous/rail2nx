@@ -97,7 +97,7 @@ def get_rail_lines(scope):
     return pd.concat(rlines)
 
 
-def get_rail_stations(scope):
+def get_rail_stations(scope, locate_coords=True):
     """
     Download or import of trainline-eu/stations database for specified scope.
 

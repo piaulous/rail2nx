@@ -12,7 +12,7 @@ pd.options.mode.chained_assignment = None
 
 def lines_to_graph(lines_gdf):
     """
-    Converts a LineString gpd.GeoDataFrame to a nx.MultiDiGraph.
+    Converts a LineString gpd.GeoDataFrame to a nx.Graph.
     Columns are preserved as edge attributes, node labels are
     initially set to the respective coordinate tuples.
     inspired by momepy package > utils.gdf_to_nx() function
@@ -21,12 +21,12 @@ def lines_to_graph(lines_gdf):
             lines_gdf (gpd.GeoDataFrame): LineStrings plus additional metadata
 
     Returns:
-            graph (nx.MultiDiGraph): graph representation of lines_gdf
+            graph (nx.Graph): graph representation of lines_gdf
     """
 
     network_gdf = lines_gdf.copy()
 
-    graph = nx.MultiDiGraph()
+    graph = nx.Graph()
     graph.graph["crs"] = network_gdf.crs
 
     network_gdf["length"] = network_gdf.geometry.length
@@ -37,7 +37,6 @@ def lines_to_graph(lines_gdf):
     network_gdf = round_gdf(network_gdf)
     cols = list(network_gdf.columns)
 
-    key = 0
     vertices = []
     for row in network_gdf.itertuples():
         first = row.geometry.coords[0]
@@ -46,9 +45,7 @@ def lines_to_graph(lines_gdf):
         data = list(row)[1:]
         attributes = dict(zip(cols, data))
 
-        if (first, last) in vertices:
-            key += 1
-        graph.add_edge(first, last, key=key, **attributes)
+        graph.add_edge(first, last, **attributes)
         vertices.append((first, last))
 
     nodes = set(sum(vertices, ()))
@@ -60,17 +57,17 @@ def lines_to_graph(lines_gdf):
 
 def graph_to_gdfs(graph):
     """
-    Convert a nx.MultiDiGraph to node and/or edge gpd.GeoDataFrame.
+    Convert a nx.Graph to node and/or edge gpd.GeoDataFrame.
     inspired by osmnx package > utils_graph.graph_to_gdfs() function
 
     Parameters:
-            graph (nx.MultiDiGraph): graph representation of lines_gdf
+            graph (nx.Graph): graph representation of lines_gdf
 
     Returns:
             gpd.GeoDataFrames or tuple: gdf_nodes and gdf_edges as tuple
             of (gdf_nodes, gdf_edges). gdf_nodes is indexed by (x, y)
             coordinate and gdf_edges is multi-indexed by (u, v, key)
-            following normal nx.MultiDiGraph structure.
+            following normal nx.Graph structure.
     """
 
     crs = graph.graph["crs"]
@@ -85,21 +82,20 @@ def graph_to_gdfs(graph):
     if not graph.edges:
         raise ValueError("Graph contains no edges.")
 
-    u, v, k, data = zip(*graph.edges(keys=True, data=True))
+    u, v, data = zip(*graph.edges(data=True))
     geom = list(d["geometry"] for d in data)
     gdf_edges = gpd.GeoDataFrame(data, crs=crs, geometry=geom)
 
     gdf_edges["u"] = u
     gdf_edges["v"] = v
-    gdf_edges["k"] = k
-    gdf_edges.set_index(["u", "v", "k"], inplace=True)
+    gdf_edges.set_index(["u", "v"], inplace=True)
 
     return gdf_nodes, gdf_edges
 
 
 def graph_from_gdfs(gdf_nodes, gdf_edges):
     """
-    Convert node and edge GeoDataFrames to a MultiDiGraph.
+    Convert node and edge GeoDataFrames to a Graph.
     This function is the inverse of `graph_to_gdfs` and is designed to work in
     conjunction with it.
     inspired by osmnx package > utils_graph.graph_from_gdfs() function
@@ -113,22 +109,22 @@ def graph_from_gdfs(gdf_nodes, gdf_edges):
 
     Returns
     -------
-    graph : nx.MultiDiGraph
+    graph : nx.Graph
     """
 
     graph_attrs = {"crs": gdf_edges.crs}
-    graph = nx.MultiDiGraph(**graph_attrs)
+    graph = nx.Graph(**graph_attrs)
 
     gdf_edges.sort_index(inplace=True)
     attr_names = gdf_edges.columns.to_list()
-    for (u, v, k), attr_vals in zip(gdf_edges.index, gdf_edges.to_numpy()):
+    for (u, v), attr_vals in zip(gdf_edges.index, gdf_edges.to_numpy()):
         data_all = zip(attr_names, attr_vals)
         data = {
             name: val
             for name, val in data_all
             if isinstance(val, list) or pd.notna(val)
         }
-        graph.add_edge(u, v, key=k, **data)
+        graph.add_edge(u, v, **data)
 
     gdf_nodes.sort_index(inplace=True)
     graph.add_nodes_from(set(gdf_nodes.index) - set(graph.nodes))
@@ -147,7 +143,7 @@ def join_stations_to_graph(graph, gdf_stations):
     nearest point allocation synthetic edges are added.
 
     Parameters:
-            graph (nx.MultiDiGraph): graph representation of lines_gdf
+            graph (nx.Graph): graph representation of lines_gdf
 
     Returns:
             gpd.GeoDataFrames or tuple: gdf_nodes and gdf_edges as tuple
@@ -219,11 +215,10 @@ def join_stations_to_graph(graph, gdf_stations):
     sjn_edges["length"] = sjn_edges.geometry.length
     # handle indexing
     sjn_edges = round_gdf(sjn_edges)
-    sjn_edges.rename(columns={"index_0": "u", "index_1": "v", "index_2": "k"})
+    sjn_edges.rename(columns={"index_0": "u", "index_1": "v"})
     sjn_edges["u"] = sjn_edges.apply(lambda x: x.geometry.coords[0], axis=1)
     sjn_edges["v"] = sjn_edges.apply(lambda x: x.geometry.coords[-1], axis=1)
-    sjn_edges["key"] = 0
-    sjn_edges = sjn_edges.set_index(["u", "v", "key"])
+    sjn_edges = sjn_edges.set_index(["u", "v"])
     sjn_edges = sjn_edges.drop("line_geom", axis=1)
 
     # remove original lines from gdf

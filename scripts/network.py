@@ -105,10 +105,9 @@ def graph_from_gdfs(gdf_nodes, gdf_edges):
 
     Parameters
     ----------
-    gdf_nodes : gpd.GeoDataFrame
-        GeoDataFrame of graph nodes
-    gdf_edges : gpd.GeoDataFrame
-        GeoDataFrame of graph edges uniquely multi-indexed by u, v, key
+    gdf_nodes : gpd.GeoDataFrame of graph nodes
+    gdf_edges : gpd.GeoDataFrame of graph edges uniquely
+                multi-indexed by u, v, key
 
     Returns
     -------
@@ -194,7 +193,7 @@ def join_stations_to_graph(graph, gdf_stations):
     # when allocated duplicated, keep station coord and build connecting edges
     idx_dpl = sjn_nodes[sjn_nodes.geometry.duplicated()].index
     sjn_nodes.loc[idx_dpl, "geometry"] = gdf_stations.loc[idx_dpl, "geometry"]
-    con_edges = sjoin.loc[idx_dpl, gdf_edges.columns]
+    con_edges = sjoin.loc[idx_dpl, gdf_edges.columns.drop("line_geom")]
     con_edges["geometry"] = [
         LineString(geoms)
         for geoms in zip(
@@ -207,13 +206,15 @@ def join_stations_to_graph(graph, gdf_stations):
     sjn_nodes = sjn_nodes.set_index(idx_nde)
 
     # rebuild gdf_edges
-    sjn_edges = sjoin[gdf_edges.columns]
+    sjn_edges = sjoin[gdf_edges.columns.drop("line_geom")]
     sjn_edges["segmented"] = True
     # overwrite gdf with segmented line geometries
-    sjn_edges["geometry"] = sjn_edges["line_geom"]
+    sjn_edges["geometry"] = sjoin["line_geom"]
     sjn_edges = sjn_edges.explode("geometry", index_parts=True)
     sjn_edges = sjn_edges.drop_duplicates("geometry")
+    # add connecting edges to frame
     sjn_edges = pd.concat([sjn_edges, con_edges], axis=0)
+    # recalc geometries and length
     sjn_edges["geometry"] = sjn_edges.geometry
     sjn_edges["length"] = sjn_edges.geometry.length
     # handle indexing
@@ -222,11 +223,10 @@ def join_stations_to_graph(graph, gdf_stations):
     sjn_edges["u"] = sjn_edges.apply(lambda x: x.geometry.coords[0], axis=1)
     sjn_edges["v"] = sjn_edges.apply(lambda x: x.geometry.coords[-1], axis=1)
     sjn_edges = sjn_edges.set_index(["u", "v"])
-    sjn_edges = sjn_edges.drop("line_geom", axis=1)
-
     # remove original lines from gdf
     idx_drp = [tuple(idx) for idx in sjoin[["index_0", "index_1"]].values]
     gdf_edges = gdf_edges.sort_index().drop(idx_drp, axis=0)
+    gdf_edges = gdf_edges.drop("line_geom", axis=1)
 
     # merge old and new gdfs
     gdf_nodes = pd.concat([gdf_nodes, sjn_nodes])

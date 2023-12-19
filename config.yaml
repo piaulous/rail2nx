@@ -3,6 +3,7 @@ urls:
   stations: "https://raw.githubusercontent.com/trainline-eu/stations/master/stations.csv"
 
 dirs:
+  lines: "data/lines_raw"
   stations: "data/stations_raw.csv"
 
 nominatim:

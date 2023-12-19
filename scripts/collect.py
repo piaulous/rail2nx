@@ -71,7 +71,7 @@ def get_rail_lines(scope):
             lines_gdf (gpd.GeoDataFrame): LineStrings plus additional metadata
     """
 
-    shps_dir = "data/lines_raw"
+    shps_dir = cfg["dirs"]["lines"]
     ccodes = get_country_codes(scope)
     rlines = []
 
@@ -86,6 +86,7 @@ def get_rail_lines(scope):
             z = zipfile.ZipFile(io.BytesIO(r.content))
             z.extractall(shps_dir)
 
+        # bugfix workaround
         if cc == "ROU":
             cc_fname = f"{shps_dir}/ROM_rails.shp"
 
@@ -116,7 +117,7 @@ def get_rail_stations(scope, locate_coords=True):
 
     logger.info("Collect station data from trainline-eu/stations")
 
-    fname = "data/stations_raw.csv"
+    fname = cfg["dirs"]["stations"]
 
     if not os.path.isfile(fname):
         stations = pd.read_csv(
@@ -161,6 +162,8 @@ def get_rail_stations(scope, locate_coords=True):
 
     stations["has_rail_id"] = stations[rail_operators].notnull().any(axis=1)
     stations = stations.loc[stations["has_rail_id"]]
+    bus_filter = "bussteig|bussterminal|autobus"
+    stations = stations[~stations["slug"].str.contains(bus_filter, na=False)]
 
     if isinstance(scope, str):
         if len(scope) == 2:
@@ -172,11 +175,14 @@ def get_rail_stations(scope, locate_coords=True):
     else:
         TypeError("Please refer to the format for parameter 'scope'.")
 
+    if locate_coords:
+        locate_missing_coords(stations)
+
     return stations
 
 
 def locate_missing_coords(stations_gdf):
-    fname = "data/stations_raw.csv"
+    fname = cfg["dirs"]["stations"]
     nom = cfg["nominatim"]
     stations = stations_gdf[stations_gdf.geometry.is_empty].set_crs(
         cfg["geo"]["crs_def"], allow_override=True

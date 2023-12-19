@@ -1,3 +1,5 @@
+import logging
+
 import geopandas as gpd
 import networkx as nx
 import pandas as pd
@@ -7,6 +9,7 @@ from shapely.ops import nearest_points, snap, split
 from scripts.tools import read_config, round_gdf
 
 cfg = read_config()
+logger = logging.getLogger("rail2nx")
 pd.options.mode.chained_assignment = None
 
 
@@ -242,6 +245,7 @@ def remove_isolates(graph):
 
     # isolate_stations = [graph.nodes[n]["name"]
     # for n in isolate_nodes if graph.nodes[n]["station"]]
+    logger.info(f"Removed {len(isolate_nodes)} isolated nodes from graph.")
 
     return graph
 

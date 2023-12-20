@@ -6,7 +6,7 @@ import pandas as pd
 from shapely.geometry import LineString, Point
 from shapely.ops import nearest_points, snap, split
 
-from scripts.tools import read_config, round_gdf
+from scripts.tools import geom_to_int, read_config, tuple_coords
 
 cfg = read_config()
 logger = logging.getLogger("rail2nx")
@@ -37,13 +37,13 @@ def lines_to_graph(lines_gdf, keep_isolates=False):
         network_gdf = network_gdf.explode(index_parts=True)
         network_gdf["length"] = network_gdf.geometry.length
 
-    network_gdf = round_gdf(network_gdf)
+    # network_gdf = round_gdf(network_gdf)
     cols = list(network_gdf.columns)
 
     vertices = []
     for row in network_gdf.itertuples():
-        first = row.geometry.coords[0]
-        last = row.geometry.coords[-1]
+        first = tuple_coords(row.geometry.coords[0])
+        last = tuple_coords(row.geometry.coords[-1])
 
         data = list(row)[1:]
         attributes = dict(zip(cols, data))
@@ -204,8 +204,8 @@ def join_stations_to_graph(graph, gdf_stations):
         )
     ]
     # handle indexing
-    sjn_nodes = round_gdf(sjn_nodes)
-    idx_nde = [sjn_nodes.geometry.x, sjn_nodes.geometry.y]
+    # sjn_nodes = round_gdf(sjn_nodes)
+    idx_nde = geom_to_int(sjn_nodes, "point")
     sjn_nodes = sjn_nodes.set_index(idx_nde)
 
     # rebuild gdf_edges
@@ -214,17 +214,16 @@ def join_stations_to_graph(graph, gdf_stations):
     # overwrite gdf with segmented line geometries
     sjn_edges["geometry"] = sjoin["line_geom"]
     sjn_edges = sjn_edges.explode("geometry", index_parts=True)
-    sjn_edges = sjn_edges.drop_duplicates("geometry")
+    sjn_edges = sjn_edges.drop_duplicates("geometry", keep="first")
     # add connecting edges to frame
     sjn_edges = pd.concat([sjn_edges, con_edges], axis=0)
     # recalc geometries and length
     sjn_edges["geometry"] = sjn_edges.geometry
     sjn_edges["length"] = sjn_edges.geometry.length
     # handle indexing
-    sjn_edges = round_gdf(sjn_edges)
+    # sjn_edges = round_gdf(sjn_edges)
     sjn_edges.rename(columns={"index_0": "u", "index_1": "v"})
-    sjn_edges["u"] = sjn_edges.apply(lambda x: x.geometry.coords[0], axis=1)
-    sjn_edges["v"] = sjn_edges.apply(lambda x: x.geometry.coords[-1], axis=1)
+    sjn_edges["u"], sjn_edges["v"] = geom_to_int(sjn_edges, "line")
     sjn_edges = sjn_edges.set_index(["u", "v"])
     # remove original lines from gdf
     idx_drp = [tuple(idx) for idx in sjoin[["index_0", "index_1"]].values]

@@ -38,3 +38,21 @@ def round_gdf(gdf):
         gdf[col] = gpd.GeoSeries.from_wkt(geoms)
 
     return gdf
+
+
+def tuple_coords(coords):
+    return tuple(int(c) for c in coords)
+
+
+def geom_to_int(gdf, geom_type, col="geometry"):
+    if geom_type == "point":
+        s = gdf.apply(lambda x: tuple_coords((x[col].x, x[col].y)), axis=1)
+        return s
+
+    elif geom_type == "line":
+        s1 = gdf.apply(lambda x: tuple_coords(x[col].coords[0]), axis=1)
+        s2 = gdf.apply(lambda x: tuple_coords(x[col].coords[-1]), axis=1)
+        return [s1, s2]
+
+    else:
+        TypeError("Please refer to the format for parameter 'geom_type'.")

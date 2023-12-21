@@ -5,7 +5,8 @@ import geopandas as gpd
 import networkx as nx
 import pandas as pd
 from shapely import line_merge, shortest_line
-from shapely.geometry import LineString, MultiLineString, Point
+from shapely.geometry import LineString  # qa
+from shapely.geometry import GeometryCollection, MultiLineString, Point
 from shapely.ops import nearest_points, snap, split
 
 from scripts.tools import geom_to_int, read_config, tuple_coords
@@ -80,19 +81,21 @@ def repair_lines(gdf_lines):
             line_2 = gdf_lines.loc[idx_2, "geometry"]
             line_c = shortest_line(line_1, line_2)
 
-            bool_1 = line_1.boundary.touches(line_c)
-            bool_2 = line_2.boundary.touches(line_c)
+            pt_1 = line_1.intersection(line_c)
+            pt_2 = line_2.intersection(line_c)
+            deg_1 = gdf_lines.geometry.boundary.contains(pt_1).sum()
+            deg_2 = gdf_lines.geometry.boundary.contains(pt_2).sum()
 
-            if all([bool_1, bool_2]):
-                line_1 = line_merge(MultiLineString([line_1, line_c]))
+            if sum([deg_1, deg_2]) > 1:
+                line_1 = assemble_line(line_1, line_c, deg_1)
 
             else:
-                if bool_1:
-                    line_1 = line_merge(MultiLineString([line_1, line_c]))
-                    line_2 = split(line_2, line_1)
+                if deg_1:  # endpoints of line_1 touch line_c
+                    line_1 = assemble_line(line_1, line_c, deg_1)
+                    line_2 = split(line_2, line_c)
                 else:
-                    line_1 = split(line_1, line_2)
-                    line_2 = line_merge(MultiLineString([line_2, line_c]))
+                    line_2 = assemble_line(line_2, line_c, deg_1)
+                    line_1 = split(line_1, line_c)
 
             line_dict[line_c.length] = {idx_1: line_1, idx_2: line_2}
 
@@ -101,7 +104,16 @@ def repair_lines(gdf_lines):
         gdf_lines.loc[idx, "geometry"] = list(geoms)
         gdf_lines = gdf_lines.explode(index_parts=True)
 
-    return gdf_lines
+    return gdf_lines.reset_index(drop=True)
+
+
+def assemble_line(line_12, line_c, deg_12):
+    if deg_12 == 1:
+        line_12 = line_merge(MultiLineString([line_12, line_c]))
+    else:
+        line_12 = GeometryCollection([line_12, line_c])
+
+    return line_12
 
 
 def graph_to_gdfs(graph):
@@ -228,7 +240,7 @@ def join_stations_to_graph(graph, gdf_stations):
     )
     # split lines into segments based on n_pts (MultiPoint)
     sjoin["line_geom"] = sjoin.apply(
-        lambda x: split(snap(x.line_geom, x.n_pts, 100), x.n_pts), axis=1
+        lambda x: split(snap(x.line_geom, x.n_pts, 1), x.n_pts), axis=1
     )
 
     # rebuild gdf_nodes
@@ -286,7 +298,7 @@ def remove_isolates(graph):
     graph.remove_nodes_from(isolate_nodes)
 
     # isolate_stations = [graph.nodes[n]["name"]
-    # for n in isolate_nodes if graph.nodes[n]["station"]]
+    #                    for n in isolate_nodes if graph.nodes[n]["station"]]
     logger.info(f"Removed {len(isolate_nodes)} isolated nodes from graph.")
 
     return graph

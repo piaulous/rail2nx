@@ -1,9 +1,11 @@
 import logging
+from itertools import product
 
 import geopandas as gpd
 import networkx as nx
 import pandas as pd
-from shapely.geometry import LineString, Point
+from shapely import line_merge, shortest_line
+from shapely.geometry import LineString, MultiLineString, Point
 from shapely.ops import nearest_points, snap, split
 
 from scripts.tools import geom_to_int, read_config, tuple_coords
@@ -13,7 +15,7 @@ logger = logging.getLogger("rail2nx")
 pd.options.mode.chained_assignment = None
 
 
-def lines_to_graph(lines_gdf, keep_isolates=False):
+def lines_to_graph(lines_gdf, line_repair=True, keep_isolates=False):
     """
     Converts a LineString gpd.GeoDataFrame to a nx.Graph.
     Columns are preserved as edge attributes, node labels are
@@ -28,6 +30,9 @@ def lines_to_graph(lines_gdf, keep_isolates=False):
     """
 
     network_gdf = lines_gdf.copy()
+
+    if line_repair:
+        network_gdf = repair_lines(network_gdf)
 
     graph = nx.Graph()
     graph.graph["crs"] = network_gdf.crs
@@ -59,6 +64,44 @@ def lines_to_graph(lines_gdf, keep_isolates=False):
         graph = remove_isolates(graph)
 
     return graph
+
+
+def repair_lines(gdf_lines):
+    line_gaps = pd.read_csv("data/line_gaps.csv")
+    for u, v in zip(line_gaps.FID_rail_d_1, line_gaps.FID_rail_d_2):
+        geoms_1 = gdf_lines[gdf_lines.FID_rail_d == u]
+        geoms_2 = gdf_lines[gdf_lines.FID_rail_d == v]
+        if any([geoms_1.empty, geoms_2.empty]):
+            continue
+
+        line_dict = {}
+        for idx_1, idx_2 in product(geoms_1.index, geoms_2.index):
+            line_1 = gdf_lines.loc[idx_1, "geometry"]
+            line_2 = gdf_lines.loc[idx_2, "geometry"]
+            line_c = shortest_line(line_1, line_2)
+
+            bool_1 = line_1.boundary.touches(line_c)
+            bool_2 = line_2.boundary.touches(line_c)
+
+            if all([bool_1, bool_2]):
+                line_1 = line_merge(MultiLineString([line_1, line_c]))
+
+            else:
+                if bool_1:
+                    line_1 = line_merge(MultiLineString([line_1, line_c]))
+                    line_2 = split(line_2, line_1)
+                else:
+                    line_1 = split(line_1, line_2)
+                    line_2 = line_merge(MultiLineString([line_2, line_c]))
+
+            line_dict[line_c.length] = {idx_1: line_1, idx_2: line_2}
+
+        idx = min(line_dict.items())[1].keys()
+        geoms = min(line_dict.items())[1].values()
+        gdf_lines.loc[idx, "geometry"] = list(geoms)
+        gdf_lines = gdf_lines.explode(index_parts=True)
+
+    return gdf_lines
 
 
 def graph_to_gdfs(graph):

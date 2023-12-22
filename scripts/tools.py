@@ -2,7 +2,9 @@ import logging
 
 import geopandas as gpd
 import yaml
-from shapely import wkt
+from shapely import line_merge, wkt
+from shapely.geometry import GeometryCollection, MultiLineString
+from shapely.ops import snap, split
 
 
 def read_config():
@@ -56,3 +58,23 @@ def geom_to_int(gdf, geom_type, col="geometry"):
 
     else:
         TypeError("Please refer to the format for parameter 'geom_type'.")
+
+
+def assemble_line(line_12, line_c, deg_12):
+    if deg_12 == 1:
+        line_12 = line_merge(MultiLineString([line_12, line_c]))
+    else:
+        if line_12.geom_type == "LineString":
+            line_12 = GeometryCollection([line_12, line_c])
+        else:
+            geoms = list(line_12.geoms) + [line_c]
+            line_12 = GeometryCollection(geoms)
+
+    return line_12
+
+
+def split_line(line, splitter):
+    tol = cfg["geo"]["precision"]
+    line_s = split(snap(line, splitter, tol), splitter)
+
+    return line_s

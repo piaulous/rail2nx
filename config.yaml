@@ -15,8 +15,8 @@ nominatim:
 geo:
   crs_def: "epsg:4326"
   crs_eur: "epsg:3035"
-  precision: 1
-  search_radius: 3500
+  precision: 1 # in m
+  search_radius: 3500 # in m
 
 logger:
   format: "%(asctime)s - %(name)-20s - %(funcName)-25s - %(levelname)-20s: %(message)s"

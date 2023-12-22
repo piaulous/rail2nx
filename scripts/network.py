@@ -81,21 +81,28 @@ def repair_lines(gdf_lines):
             line_2 = gdf_lines.loc[idx_2, "geometry"]
             line_c = shortest_line(line_1, line_2)
 
-            pt_1 = line_1.intersection(line_c)
-            pt_2 = line_2.intersection(line_c)
+            pt_1, pt_2 = line_c.boundary.geoms
             deg_1 = gdf_lines.geometry.boundary.contains(pt_1).sum()
             deg_2 = gdf_lines.geometry.boundary.contains(pt_2).sum()
 
-            if sum([deg_1, deg_2]) > 1:
+            # both line endpoints touch line_c
+            if all(d == 1 for d in [deg_1, deg_2]):
                 line_1 = assemble_line(line_1, line_c, deg_1)
+            # touching points are between endpoints for both lines
+            elif not sum([deg_1, deg_2]):
+                line_1 = split(snap(line_1, pt_1, 1), pt_1)
+                line_1 = assemble_line(line_1, line_c, deg_1)
+                line_2 = split(snap(line_2, pt_2, 1), pt_2)
 
+            # endpoint of one line touches line_c
             else:
-                if deg_1:  # endpoints of line_1 touch line_c
+                if deg_1:
                     line_1 = assemble_line(line_1, line_c, deg_1)
-                    line_2 = split(line_2, line_c)
+                    line_2 = split(snap(line_2, pt_2, 1), pt_2)
+
                 else:
-                    line_2 = assemble_line(line_2, line_c, deg_1)
-                    line_1 = split(line_1, line_c)
+                    line_2 = assemble_line(line_2, line_c, deg_2)
+                    line_1 = split(snap(line_1, pt_1, 1), pt_1)
 
             line_dict[line_c.length] = {idx_1: line_1, idx_2: line_2}
 
@@ -111,7 +118,11 @@ def assemble_line(line_12, line_c, deg_12):
     if deg_12 == 1:
         line_12 = line_merge(MultiLineString([line_12, line_c]))
     else:
-        line_12 = GeometryCollection([line_12, line_c])
+        if line_12.geom_type == "LineString":
+            line_12 = GeometryCollection([line_12, line_c])
+        else:
+            geoms = list(line_12.geoms) + [line_c]
+            line_12 = GeometryCollection(geoms)
 
     return line_12
 

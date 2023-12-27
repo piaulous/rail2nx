@@ -85,6 +85,8 @@ def repair_lines(gdf_lines):
             line_1 = gdf_lines.loc[idx_1, "geometry"]
             line_2 = gdf_lines.loc[idx_2, "geometry"]
             line_c = shortest_line(line_1, line_2)
+            if not line_c.length:
+                continue
 
             pt_1, pt_2 = line_c.boundary.geoms
             deg_1 = gdf_lines.geometry.boundary.contains(pt_1).sum()
@@ -297,11 +299,17 @@ def join_stations_to_graph(graph, gdf_stations):
 def remove_isolates(graph):
     largest_cc = max(nx.connected_components(graph), key=len)
     isolate_nodes = set(graph.nodes) - largest_cc
+    isolate_stations = [
+        graph.nodes[node]["name"]
+        for node in isolate_nodes
+        if graph.nodes[node]["station"]
+    ]
     graph.remove_nodes_from(isolate_nodes)
-
-    # isolate_stations = [graph.nodes[n]["name"]
-    #                    for n in isolate_nodes if graph.nodes[n]["station"]]
-    logger.info(f"Removed {len(isolate_nodes)} isolated nodes from graph.")
+    logger.info(
+        f"Removed {len(isolate_nodes)} isolated nodes with "
+        f"{len(isolate_stations)} stations from graph."
+    )
+    logger.info(f"Removed stations: {isolate_stations}")
 
     return graph
 
@@ -309,9 +317,9 @@ def remove_isolates(graph):
 def remove_deadends(graph):
     while True:
         deadend_nodes = [
-            n
-            for n, deg in dict(graph.degree()).items()
-            if deg == 1 and not graph.nodes[n]["station"]
+            node
+            for node, deg in dict(graph.degree()).items()
+            if deg == 1 and not graph.nodes[node]["station"]
         ]
         if len(deadend_nodes) > 0:
             graph.remove_nodes_from(deadend_nodes)

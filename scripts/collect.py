@@ -95,7 +95,7 @@ def get_rail_lines(scope):
         )
         rlines.append(cc_rlines)
 
-    return pd.concat(rlines)
+    return pd.concat(rlines).reset_index(drop=True)
 
 
 def get_rail_stations(scope, locate_coords=True):
@@ -191,6 +191,8 @@ def locate_missing_coords(stations_gdf):
     unlocatables = []
 
     for idx, row in stations.iterrows():
+        logger.info(f"Trying to locate station '{row['name']}'")
+
         query = (
             f"{nom['url']}&"
             f"accept-language={nom['language']}&"
@@ -225,6 +227,8 @@ def locate_missing_coords(stations_gdf):
                 )
                 unlocatables.append(idx)
                 continue
+
+            logger.info(f"Successfully located station '{row['name']}'")
 
         # fill missing data
         stations.at[idx, "latitude"] = float(osm["lat"])

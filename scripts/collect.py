@@ -72,12 +72,15 @@ def get_rail_lines(scope):
     """
 
     shps_dir = cfg["dirs"]["lines"]
-    ccodes = get_country_codes(scope)
-    rlines = []
+    cols_raw = ["FID_rail_d", "EXS_DESCRI", "FCO_DESCRI", "ISO", "geometry"]
+    cols_tar = ["rail_id", "status", "tracks", "country", "geometry"]
+    ccodes_a2 = get_country_codes(scope, "alpha-2")
+    ccodes_a3 = get_country_codes(scope, "alpha-3")
 
     logger.info("Collect rail line data from DIVA-GIS")
 
-    for cc in ccodes:
+    rlines = []
+    for cc in ccodes_a3:
         cc_fname = f"{shps_dir}/{cc}_rails.shp"
 
         if not os.path.isfile(cc_fname):
@@ -92,10 +95,18 @@ def get_rail_lines(scope):
 
         cc_rlines = gpd.read_file(cc_fname, crs=cfg["geo"]["crs_def"]).to_crs(
             cfg["geo"]["crs_eur"]
-        )
+        )[cols_raw]
         rlines.append(cc_rlines)
 
-    return pd.concat(rlines).reset_index(drop=True)
+    cc_mapping = dict(zip(ccodes_a3, ccodes_a2))
+    cc_mapping.update({"ROM": "RO"})  # bugfix workaround
+    col_mapping = dict(zip(cols_raw, cols_tar))
+
+    gdf_lines = pd.concat(rlines).reset_index(drop=True)
+    gdf_lines = gdf_lines.rename(columns=col_mapping)
+    gdf_lines["country"] = gdf_lines.country.replace(cc_mapping, regex=True)
+
+    return gdf_lines
 
 
 def get_rail_stations(scope, locate_coords=True):

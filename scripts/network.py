@@ -74,9 +74,9 @@ def lines_to_graph(lines_gdf, line_repair=True, keep_isolates=False):
 
 def repair_lines(gdf_lines):
     line_gaps = pd.read_csv("data/line_gaps.csv")
-    for u, v in zip(line_gaps.FID_rail_d_1, line_gaps.FID_rail_d_2):
-        geoms_1 = gdf_lines[gdf_lines.FID_rail_d == u]
-        geoms_2 = gdf_lines[gdf_lines.FID_rail_d == v]
+    for u, v in zip(line_gaps.rail_id_1, line_gaps.rail_id_2):
+        geoms_1 = gdf_lines[gdf_lines.rail_id == u]
+        geoms_2 = gdf_lines[gdf_lines.rail_id == v]
         if any([geoms_1.empty, geoms_2.empty]):
             continue
 
@@ -225,9 +225,10 @@ def join_stations_to_graph(graph, gdf_stations):
     # remove stations outside search radius
     sjoin = gpd.sjoin_nearest(
         gdf_stations,
-        gdf_edges,
+        gdf_edges.drop("country", axis=1),
         how="left",
-        rsuffix="",
+        lsuffix="l",
+        rsuffix="r",
         distance_col="dist",
         max_distance=cfg["geo"]["search_radius"],
     ).sort_values("dist", ascending=True)
@@ -239,8 +240,8 @@ def join_stations_to_graph(graph, gdf_stations):
     sjoin["n_pt"] = sjoin.apply(
         lambda x: nearest_points(x.geometry, x.line_geom)[1], axis=1
     )
-    sjoin["n_pts"] = sjoin.FID_rail_d.apply(
-        lambda x: sjoin[sjoin.FID_rail_d == x].n_pt.unary_union
+    sjoin["n_pts"] = sjoin.rail_id.apply(
+        lambda x: sjoin[sjoin.rail_id == x].n_pt.unary_union
     )
     # split lines into segments based on n_pts (MultiPoint)
     sjoin["line_geom"] = sjoin.apply(
@@ -281,11 +282,11 @@ def join_stations_to_graph(graph, gdf_stations):
     sjn_edges["length"] = sjn_edges.geometry.length
     # handle indexing
     # sjn_edges = round_gdf(sjn_edges)
-    sjn_edges.rename(columns={"index_0": "u", "index_1": "v"})
+    sjn_edges.rename(columns={"index_r0": "u", "index_r1": "v"})
     sjn_edges["u"], sjn_edges["v"] = geom_to_int(sjn_edges, "line")
     sjn_edges = sjn_edges.set_index(["u", "v"])
     # remove original lines from gdf
-    idx_drp = [tuple(idx) for idx in sjoin[["index_0", "index_1"]].values]
+    idx_drp = [tuple(idx) for idx in sjoin[["index_r0", "index_r1"]].values]
     gdf_edges = gdf_edges.sort_index().drop(idx_drp, axis=0)
     gdf_edges = gdf_edges.drop("line_geom", axis=1)
 

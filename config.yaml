@@ -6,6 +6,10 @@ dirs:
   lines: "data/lines_raw"
   stations: "data/stations_raw.csv"
 
+rail:
+  operators: ['sncf', 'entur', 'db', 'cff', 'leoexpress', 'obb', 'ouigo', 'trenitalia',
+              'trenord', 'ntv', 'hkx', 'renfe', 'atoc', 'benerail', 'westbahn']
+
 nominatim:
   url: "https://nominatim.openstreetmap.org/search?"
   tags: "railway%3Astation"
